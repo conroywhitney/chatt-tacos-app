@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Platform, SafeAreaView, TextInput } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as Linking from 'expo-linking';
 import { StatusBar } from 'expo-status-bar';
+import MapComponent from './MapComponent'; // Will auto-select .web.tsx on web
 
 interface Vendor {
   id: string;
@@ -68,28 +68,35 @@ export default function App() {
   const [favorites, setFavorites] = useState<string[]>([]);
 
   useEffect(() => {
-    (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission denied', 'Location permission is needed to show your position on the map');
-        return;
-      }
+    if (Platform.OS !== 'web') {
+      (async () => {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission denied', 'Location permission is needed to show your position on the map');
+          return;
+        }
 
-      let location = await Location.getCurrentPositionAsync({});
-      setLocation(location);
-    })();
+        let location = await Location.getCurrentPositionAsync({});
+        setLocation(location);
+      })();
+    }
   }, []);
 
   const openInMaps = (vendor: Vendor) => {
-    const scheme = Platform.select({ ios: 'maps://0,0?q=', android: 'geo:0,0?q=' });
-    const latLng = `${vendor.latitude},${vendor.longitude}`;
-    const label = vendor.name;
-    const url = Platform.select({
-      ios: `${scheme}${label}@${latLng}`,
-      android: `${scheme}${latLng}(${label})`
-    });
+    if (Platform.OS === 'web') {
+      const url = `https://www.google.com/maps/search/?api=1&query=${vendor.latitude},${vendor.longitude}`;
+      Linking.openURL(url);
+    } else {
+      const scheme = Platform.select({ ios: 'maps://0,0?q=', android: 'geo:0,0?q=' });
+      const latLng = `${vendor.latitude},${vendor.longitude}`;
+      const label = vendor.name;
+      const url = Platform.select({
+        ios: `${scheme}${label}@${latLng}`,
+        android: `${scheme}${latLng}(${label})`
+      });
 
-    Linking.openURL(url!);
+      Linking.openURL(url!);
+    }
   };
 
   const toggleFavorite = (vendorId: string) => {
@@ -113,6 +120,7 @@ export default function App() {
     }
     return true;
   });
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -160,27 +168,7 @@ export default function App() {
         </TouchableOpacity>
       </ScrollView>
 
-      <MapView
-        style={styles.map}
-        provider={PROVIDER_GOOGLE}
-        initialRegion={{
-          latitude: 35.0456,
-          longitude: -85.3097,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}
-        showsUserLocation={true}
-      >
-        {filteredVendors.map(vendor => (
-          <Marker
-            key={vendor.id}
-            coordinate={{ latitude: vendor.latitude, longitude: vendor.longitude }}
-            title={vendor.name}
-            description={vendor.description}
-            onPress={() => setSelectedVendor(vendor)}
-          />
-        ))}
-      </MapView>
+      <MapComponent vendors={filteredVendors} onVendorPress={setSelectedVendor} />
 
       <ScrollView style={styles.vendorList}>
         {filteredVendors.map(vendor => (
