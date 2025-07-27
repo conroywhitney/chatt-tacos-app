@@ -4,66 +4,13 @@ import * as Location from 'expo-location';
 import * as Linking from 'expo-linking';
 import { StatusBar } from 'expo-status-bar';
 import MapComponent from './MapComponent'; // Will auto-select .web.tsx on web
+import { TACO_WEEK_RESTAURANTS } from './data/restaurants';
 
-interface Vendor {
-  id: string;
-  name: string;
-  description: string;
-  latitude: number;
-  longitude: number;
-  ingredients: string[];
-  specialties: string[];
-  vegetarian: boolean;
-  vegan: boolean;
-  glutenFree: boolean;
-}
-
-// Mock vendor data - replace with real data
-const VENDORS: Vendor[] = [
-  {
-    id: '1',
-    name: 'Taco Libre',
-    description: 'Authentic street tacos with house-made tortillas',
-    latitude: 35.0456,
-    longitude: -85.3097,
-    ingredients: ['beef', 'chicken', 'pork', 'cilantro', 'onion', 'lime'],
-    specialties: ['Al Pastor', 'Carnitas'],
-    vegetarian: true,
-    vegan: false,
-    glutenFree: false,
-  },
-  {
-    id: '2',
-    name: 'Veggie Vibes',
-    description: 'Plant-based Mexican fusion',
-    latitude: 35.0467,
-    longitude: -85.3085,
-    ingredients: ['black beans', 'mushrooms', 'avocado', 'quinoa', 'cashew crema'],
-    specialties: ['Mushroom Barbacoa', 'Jackfruit Carnitas'],
-    vegetarian: true,
-    vegan: true,
-    glutenFree: true,
-  },
-  {
-    id: '3',
-    name: 'La Cocina de Abuela',
-    description: 'Traditional family recipes from Oaxaca',
-    latitude: 35.0445,
-    longitude: -85.3110,
-    ingredients: ['mole', 'chicken', 'cheese', 'corn', 'peppers'],
-    specialties: ['Mole Negro Tacos', 'Quesadillas'],
-    vegetarian: true,
-    vegan: false,
-    glutenFree: false,
-  },
-];
 
 export default function App() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
-  const [filterVegetarian, setFilterVegetarian] = useState(false);
-  const [filterVegan, setFilterVegan] = useState(false);
-  const [filterGlutenFree, setFilterGlutenFree] = useState(false);
+  const [selectedVendor, setSelectedVendor] = useState<any>(null);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [favorites, setFavorites] = useState<string[]>([]);
 
@@ -82,14 +29,14 @@ export default function App() {
     }
   }, []);
 
-  const openInMaps = (vendor: Vendor) => {
+  const openInMaps = (restaurant: any) => {
     if (Platform.OS === 'web') {
-      const url = `https://www.google.com/maps/search/?api=1&query=${vendor.latitude},${vendor.longitude}`;
+      const url = `https://www.google.com/maps/search/?api=1&query=${restaurant.latitude},${restaurant.longitude}`;
       Linking.openURL(url);
     } else {
       const scheme = Platform.select({ ios: 'maps://0,0?q=', android: 'geo:0,0?q=' });
-      const latLng = `${vendor.latitude},${vendor.longitude}`;
-      const label = vendor.name;
+      const latLng = `${restaurant.latitude},${restaurant.longitude}`;
+      const label = restaurant.name;
       const url = Platform.select({
         ios: `${scheme}${label}@${latLng}`,
         android: `${scheme}${latLng}(${label})`
@@ -107,16 +54,14 @@ export default function App() {
     );
   };
 
-  const filteredVendors = VENDORS.filter(vendor => {
-    if (filterVegetarian && !vendor.vegetarian) return false;
-    if (filterVegan && !vendor.vegan) return false;
-    if (filterGlutenFree && !vendor.glutenFree) return false;
+  const filteredRestaurants = TACO_WEEK_RESTAURANTS.filter(restaurant => {
+    if (showFavoritesOnly && !favorites.includes(restaurant.id)) return false;
     if (searchText) {
       const searchLower = searchText.toLowerCase();
-      return vendor.name.toLowerCase().includes(searchLower) ||
-             vendor.description.toLowerCase().includes(searchLower) ||
-             vendor.ingredients.some(ing => ing.toLowerCase().includes(searchLower)) ||
-             vendor.specialties.some(spec => spec.toLowerCase().includes(searchLower));
+      return restaurant.name.toLowerCase().includes(searchLower) ||
+             restaurant.address.toLowerCase().includes(searchLower) ||
+             (restaurant.description?.toLowerCase().includes(searchLower) || false) ||
+             (restaurant.featuredItem?.toLowerCase().includes(searchLower) || false);
     }
     return true;
   });
@@ -139,72 +84,53 @@ export default function App() {
         />
       </View>
 
-      <ScrollView horizontal style={styles.filterContainer} showsHorizontalScrollIndicator={false}>
+      <View style={styles.filterContainer}>
         <TouchableOpacity 
-          style={[styles.filterButton, filterVegetarian && styles.filterActive]}
-          onPress={() => setFilterVegetarian(!filterVegetarian)}
+          style={[styles.filterButton, showFavoritesOnly && styles.filterActive]}
+          onPress={() => setShowFavoritesOnly(!showFavoritesOnly)}
         >
-          <Text style={[styles.filterText, filterVegetarian && styles.filterTextActive]}>
-            🥬 Vegetarian
+          <Text style={[styles.filterText, showFavoritesOnly && styles.filterTextActive]}>
+            ❤️ Show Favorites Only
           </Text>
         </TouchableOpacity>
         
-        <TouchableOpacity 
-          style={[styles.filterButton, filterVegan && styles.filterActive]}
-          onPress={() => setFilterVegan(!filterVegan)}
-        >
-          <Text style={[styles.filterText, filterVegan && styles.filterTextActive]}>
-            🌱 Vegan
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.filterButton, filterGlutenFree && styles.filterActive]}
-          onPress={() => setFilterGlutenFree(!filterGlutenFree)}
-        >
-          <Text style={[styles.filterText, filterGlutenFree && styles.filterTextActive]}>
-            🌾 Gluten-Free
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+        <Text style={styles.dateText}>🌮 July 28 - August 3, 2025</Text>
+      </View>
 
-      <MapComponent vendors={filteredVendors} onVendorPress={setSelectedVendor} />
+      <MapComponent vendors={filteredRestaurants} onVendorPress={setSelectedVendor} />
 
       <ScrollView style={styles.vendorList}>
-        {filteredVendors.map(vendor => (
-          <View key={vendor.id} style={styles.vendorCard}>
+        {filteredRestaurants.map(restaurant => (
+          <View key={restaurant.id} style={styles.vendorCard}>
             <View style={styles.vendorHeader}>
-              <Text style={styles.vendorName}>{vendor.name}</Text>
-              <TouchableOpacity onPress={() => toggleFavorite(vendor.id)}>
+              <Text style={styles.vendorName}>{restaurant.name}</Text>
+              <TouchableOpacity onPress={() => toggleFavorite(restaurant.id)}>
                 <Text style={styles.favoriteButton}>
-                  {favorites.includes(vendor.id) ? '❤️' : '🤍'}
+                  {favorites.includes(restaurant.id) ? '❤️' : '🤍'}
                 </Text>
               </TouchableOpacity>
             </View>
             
-            <Text style={styles.vendorDescription}>{vendor.description}</Text>
+            <Text style={styles.vendorDescription}>{restaurant.address}</Text>
             
-            <View style={styles.specialtiesContainer}>
-              {vendor.specialties.map((specialty, index) => (
-                <Text key={index} style={styles.specialty}>
-                  🌮 {specialty}
-                </Text>
-              ))}
+            {restaurant.description && (
+              <Text style={styles.restaurantInfo}>{restaurant.description}</Text>
+            )}
+            
+            <View style={styles.featuredItemContainer}>
+              <Text style={styles.featuredLabel}>Featured $4 Taco:</Text>
+              <Text style={styles.featuredItem}>
+                {restaurant.featuredItem || '🌮 Coming Soon! Check back closer to the event'}
+              </Text>
             </View>
             
             <View style={styles.vendorActions}>
               <TouchableOpacity 
                 style={styles.directionsButton}
-                onPress={() => openInMaps(vendor)}
+                onPress={() => openInMaps(restaurant)}
               >
                 <Text style={styles.directionsText}>📍 Get Directions</Text>
               </TouchableOpacity>
-              
-              <View style={styles.dietaryBadges}>
-                {vendor.vegetarian && <Text style={styles.badge}>🥬</Text>}
-                {vendor.vegan && <Text style={styles.badge}>🌱</Text>}
-                {vendor.glutenFree && <Text style={styles.badge}>🌾</Text>}
-              </View>
             </View>
           </View>
         ))}
@@ -243,9 +169,16 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 5,
     backgroundColor: '#f8f8f8',
+  },
+  dateText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
   },
   filterButton: {
     paddingHorizontal: 15,
@@ -304,15 +237,28 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 10,
   },
-  specialtiesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  restaurantInfo: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 5,
     marginBottom: 10,
   },
-  specialty: {
+  featuredItemContainer: {
+    backgroundColor: '#FFF3CD',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 10,
+  },
+  featuredLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#856404',
+    marginBottom: 2,
+  },
+  featuredItem: {
     fontSize: 14,
-    color: '#FF6B6B',
-    marginRight: 15,
+    color: '#856404',
   },
   vendorActions: {
     flexDirection: 'row',
@@ -329,12 +275,5 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: '500',
-  },
-  dietaryBadges: {
-    flexDirection: 'row',
-  },
-  badge: {
-    fontSize: 20,
-    marginLeft: 5,
   },
 });
